@@ -1,0 +1,24 @@
+Encryption Requirement:
+
+    First Description: Requires encryption of the log file using an RSA-based encryption tool previously implemented in Assignment 1. Decryption is needed before every event is logged, followed by re-encryption afterward.
+    Second Description: Omits any mention of encryption, suggesting that the log file remains in plain text.
+
+Log Entry Content – Timestamp:
+
+    First Description: Lists "Timestamp" but does not specify the timezone.
+    Second Description: Specifies the "Timestamp" should be in UTC timezone, providing clarity on time standardization.
+
+File Fingerprint/Hash Function:
+
+    First Description: Recommends using MD5 hash functions for generating the file fingerprint.
+    Second Description: Recommends using hash functions from evp.h, without specifying a particular algorithm like MD5.
+
+Malicious User Detection – File Access Threshold:
+
+    First Description: Identifies "malicious users" as those who attempt access to more than 7 different files without permission.
+    Second Description: Lowers this threshold to more than 5 different files for a user to be flagged as malicious.
+
+Log Monitoring Output:
+
+    First Description: Requires tracking and reporting users who modified a specified file, displaying a table of the number of times each user modified the file.
+    Second Description: Simplifies this requirement by stating it should report the user name and modification count, without specifying a tabular format.

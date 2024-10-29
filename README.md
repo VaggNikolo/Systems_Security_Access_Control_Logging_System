@@ -105,13 +105,6 @@ To remove generated binaries and temporary files, run:
 make clean
 ```
 
-## Code Structure
-
-- **Memory Safety**: All string operations use safe functions (`strncpy`, `snprintf`) to prevent buffer overflows.
-- **Dynamic Memory Allocation**: The program dynamically manages memory for log entries and strings.
-- **SHA-256 Fingerprinting**: Uses OpenSSL's EVP interface for generating SHA-256 hashes of file contents to uniquely identify file modifications.
-
 ## Requirements
 
 - **OpenSSL**: Ensure that OpenSSL libraries are installed on your system for SHA-256 hashing.
-- **Linux Environment**: This tool uses Linux-specific headers and `LD_PRELOAD`, and may not be compatible with other operating systems.

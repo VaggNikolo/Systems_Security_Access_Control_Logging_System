@@ -28,36 +28,45 @@ struct log_entry ** unmarshal_users(FILE *log) {
 	logs = (struct log_entry **)malloc(sizeof(struct log_entry *) * max_logs);
 	curr_logs = max_logs;
 
+	// Read the log file line by line
 	while ((fcnt = fgets(buffer, sizeof(buffer), log)) != NULL) {
 		logs[i] = (struct log_entry *)malloc(sizeof(struct log_entry));
 
+		// Parse the user ID (uid)
 		ptr = strtok(buffer, "\t");
 		logs[i]->uid = atoi(ptr);
-
+		
+		// Parse the file name
 		ptr = strtok(NULL, "\t");
 		logs[i]->file = (char *)malloc(strlen(ptr) + 1);
 		strncpy(logs[i]->file, ptr, strlen(ptr) + 1);
-
+		
+		// Parse the date
 		ptr = strtok(NULL, "\t");
 		strptime(ptr, "%d/%m/%y", &tm);
 		logs[i]->date = mktime(&tm);
-
+		
+		// Parse the Timestamp
 		ptr = strtok(NULL, "\t");
 		strptime(ptr, "%H/%M/%S", &tm);
 		logs[i]->time = mktime(&tm);
 
+		// Parse the Access Type
 		ptr = strtok(NULL, "\t");
 		logs[i]->access_type = atoi(ptr);
 
+		// Parse the action_denied flag
 		ptr = strtok(NULL, "\t");
 		logs[i]->action_denied = atoi(ptr);
-
+		
+		// Parse the fingerprint
 		ptr = strtok(NULL, "\n");
 		logs[i]->fingerprint = (char *)malloc(strlen(ptr) + 1);
 		strncpy(logs[i]->fingerprint, ptr, strlen(ptr) + 1);
 
 		i++;
-
+		
+		// If the array is full, add space for 256 more entries
 		if (i == curr_logs) {
 			curr_logs += max_logs;
 			logs = realloc(logs, sizeof(struct log_entry *) * curr_logs);
@@ -68,6 +77,7 @@ struct log_entry ** unmarshal_users(FILE *log) {
 	return logs;
 }
 
+// This function returns 1 if a certain value is found in the array and 0 otherwise 
 int searchInt(int *arr, int val, int length) {
 	if (!arr) return 0;
 
@@ -77,6 +87,8 @@ int searchInt(int *arr, int val, int length) {
 	return 0;
 }
 
+
+// This function returns 1 if a certain filename is found in the array and 0 otherwise
 int searchFile(char **arr, char* val, int length) {
 	if (!arr) return 0;
 
@@ -86,11 +98,13 @@ int searchFile(char **arr, char* val, int length) {
 	return 0;
 }
 
+// This function extracts unique user IDs from an array of log entries
 int * uniqueUIDs(struct log_entry **logs, int *length) {
 	int *uids = NULL;
 	*length = 0;
 
 	while (*logs != NULL) {
+		// Check if the current UID is already in the list of unique UIDs
 		if (!searchInt(uids, (*logs)->uid, *length)) {
 			uids = realloc(uids, sizeof(int) * (++(*length)));
 			uids[*length - 1] = (*logs)->uid;
@@ -101,8 +115,11 @@ int * uniqueUIDs(struct log_entry **logs, int *length) {
 	return uids;
 }
 
+// Function to find the first valid fingerprint associated with a given user ID and filename
 char * findFirstFingerprint(struct log_entry **logs, int uid, char *filename) {
 	while (*logs) {
+		/* Check if the log entry is for the current user and filename 
+		and if access was not denied */
 		if ((*logs)->uid == uid && strcmp((*logs)->file, realpath(filename, NULL)) == 0 && !((*logs)->action_denied))
 			return (*logs)->fingerprint;
 		logs++;
@@ -110,8 +127,9 @@ char * findFirstFingerprint(struct log_entry **logs, int uid, char *filename) {
 	return NULL;
 }
 
+// Help Message
 void usage(void) {
-	printf(
+	printf(	
 		"\n"
 		"usage:\n"
 		"\t./monitor \n"
@@ -124,27 +142,32 @@ void usage(void) {
 	exit(1);
 }
 
-void list_unauthorized_accesses(FILE *log) {
+void list_malicious_users(FILE *log) {
 	struct log_entry **logs = unmarshal_users(log), **p;
 	int *uids, uids_l, files_l;
 	char **files = NULL;
 
+	// Get unique user IDs 
 	uids = uniqueUIDs(logs, &uids_l);
 
+	// Loop through each unique user ID
 	for (int i = 0; i < uids_l; i++) {
 		files_l = 0;
-		files = (char **)calloc(7, sizeof(char *));
+		files = (char **)calloc(7, sizeof(char *));  // Allocate memory for storing up to 7 file names
 		p = logs;
 
 		while (*p) {
+			// Check if the log entry is for the current user and if access was denied
 			if ((*p)->uid == uids[i] && (*p)->action_denied) {
+				// Check if the file hasn't been recorded for this user yet
 				if (!searchFile(files, (*p)->file, files_l)) {
 					files[files_l] = (char *)malloc(strlen((*p)->file) + 1);
 					strncpy(files[files_l], (*p)->file, strlen((*p)->file) + 1);
 					files_l++;
 				}
 			}
-
+			/* If the user has attempted to access 5 or more unauthorized files, 
+			print the user ID and exit the loop */
 			if (files_l >= 5) {
 				printf("%d\n", uids[i]);
 				break;
@@ -163,24 +186,29 @@ void list_file_modifications(FILE *log, char *file_to_scan) {
 		printf("./acmonitor: file \"%s\" does not exist\n", file_to_scan);
 		usage();
 	}
-
+	
+	// Get unique user IDs 
 	uids = uniqueUIDs(logs, &length);
-
+	
+	// Loop through each unique user ID  
 	for (int i = 0; i < length; i++) {
 		mods = 0;
-		last_fngp = findFirstFingerprint(logs, uids[i], file_to_scan);
+		last_fngp = findFirstFingerprint(logs, uids[i], file_to_scan); // Find the initial fingerprint for this user
 		p = logs;
 
 		while (*p) {
+			// Check if the log entry is for the current user and if the file matches
 			if ((*p)->uid == uids[i] && strcmp((*p)->file, realpath(file_to_scan, NULL)) == 0) {
+				// Check if the first fingerprint has changed and if the access type is modification
 				if (strcmp((*p)->fingerprint, last_fngp) != 0 && (*p)->access_type == 2) {
 					mods++;
-					last_fngp = (*p)->fingerprint;
+					last_fngp = (*p)->fingerprint; // Update to the current fingerprint
 				}
 			}
 			p++;
 		}
-
+		
+		// If the user modified the file, print the number of times
 		if (mods > 0) printf("User %d modified the file %d times\n", uids[i], mods);
 	}
 }
@@ -190,7 +218,8 @@ int main(int argc, char *argv[]) {
 	FILE *log;
 
 	if (argc < 2) usage();
-
+	
+	// Open the log file for reading
 	log = fopen("./file_logging.log", "r");
 	if (log == NULL) {
 		printf("Error opening log file \"%s\"\n", "./file_logging.log");
@@ -199,12 +228,15 @@ int main(int argc, char *argv[]) {
 
 	while ((ch = getopt(argc, argv, "hi:m")) != -1) {
 		switch (ch) {
+		// Prints users that modified the file given and the number of modifications
 		case 'i':
 			list_file_modifications(log, optarg);
 			break;
+		// Prints malicious users
 		case 'm':
-			list_unauthorized_accesses(log);
+			list_malicious_users(log);
 			break;
+		// Help Message
 		default:
 			usage();
 		}
